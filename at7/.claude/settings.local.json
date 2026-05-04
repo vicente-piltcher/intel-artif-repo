@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(python run_dtc.py)",
+      "Bash(python gerar_arvore.py)"
+    ]
+  }
+}

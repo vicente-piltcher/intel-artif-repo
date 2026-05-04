@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jogo da Velha × IA | T1 PUCRS</title>
+  <style>
+    /* ── Reset & Base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+      color: #f8fafc;
+    }
+    .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 1.8rem; }
+
+    /* ── Layout principal ───────────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1.5rem;
+      align-items: start;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    /* ── Tabuleiro ──────────────────────────────────────────────────── */
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 110px);
+      grid-template-rows:    repeat(3, 110px);
+      gap: 6px;
+    }
+
+    .cell {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, border-color 0.15s;
+      user-select: none;
+    }
+    .cell:hover:not(.taken):not(.disabled) {
+      background: #273549;
+      border-color: #4f8ef7;
+      transform: scale(1.04);
+    }
+    .cell.x { color: #4ade80; cursor: default; }
+    .cell.o { color: #f87171; cursor: default; }
+    .cell.taken  { cursor: default; }
+    .cell.disabled { cursor: not-allowed; opacity: 0.6; }
+
+    .cell.win-x { background: #14532d44; border-color: #4ade80; }
+    .cell.win-o { background: #7f1d1d44; border-color: #f87171; }
+
+    /* ── Painel lateral ─────────────────────────────────────────────── */
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-width: 210px;
+    }
+
+    .panel-section { display: flex; flex-direction: column; gap: 0.4rem; }
+    .panel-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    /* Badge de estado */
+    .state-badge {
+      display: inline-block;
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .state-tem_jogo  { background: #1d4ed844; color: #60a5fa; border: 1px solid #3b82f6; }
+    .state-x_venceu  { background: #14532d44; color: #4ade80; border: 1px solid #22c55e; }
+    .state-o_venceu  { background: #7f1d1d44; color: #f87171; border: 1px solid #ef4444; }
+    .state-empate    { background: #7c2d1244; color: #fb923c; border: 1px solid #f97316; }
+    .state-unknown   { background: #1e293b;   color: #64748b; border: 1px solid #475569; }
+
+    /* Badge de modo */
+    .mode-badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .mode-ml       { background: #064e3b; color: #34d399; }
+    .mode-error    { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+
+    /* ── Mensagem de fim de jogo ────────────────────────────────────── */
+    #message-box {
+      display: none;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    #message-box.visible { display: block; }
+    .msg-win-x  { border-color: #22c55e !important; }
+    .msg-win-o  { border-color: #ef4444 !important; }
+    .msg-draw   { border-color: #f97316 !important; }
+    .msg-warn   { border-color: #eab308 !important; color: #fde047; }
+
+    /* ── Log de predições ───────────────────────────────────────────── */
+    .log-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      margin-top: 1rem;
+    }
+    #pred-log {
+      width: 100%;
+      max-width: 680px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #pred-log table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    #pred-log th {
+      background: #0f172a;
+      padding: 0.45rem 0.7rem;
+      text-align: left;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #pred-log td {
+      padding: 0.4rem 0.7rem;
+      border-top: 1px solid #1e293b;
+      color: #cbd5e1;
+    }
+    #pred-log tr:nth-child(even) td { background: #162032; }
+
+    /* ── Botão ──────────────────────────────────────────────────────── */
+    button {
+      padding: 0.65rem 1.4rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:hover  { opacity: 0.88; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    #new-game-btn {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: #fff;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    /* ── Rodapé ─────────────────────────────────────────────────────── */
+    footer {
+      margin-top: 2rem;
+      font-size: 0.72rem;
+      color: #334155;
+    }
+
+    /* ── Responsivo ─────────────────────────────────────────────────── */
+    @media (max-width: 560px) {
+      .main-grid { grid-template-columns: 1fr; }
+      #board {
+        grid-template-columns: repeat(3, 90px);
+        grid-template-rows:    repeat(3, 90px);
+      }
+      .cell { font-size: 2.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Jogo da Velha × IA</h1>
+  <p class="subtitle">T1 – Inteligência Artificial | PUCRS | Grupo 32 &nbsp;·&nbsp; Você é <strong style="color:#4ade80">X</strong></p>
+
+  <div class="main-grid">
+
+    <!-- ── Tabuleiro ────────────────────────────────────────────────── -->
+    <div>
+      <div id="board">
+        <!-- células geradas por JS -->
+      </div>
+    </div>
+
+    <!-- ── Painel lateral ───────────────────────────────────────────── -->
+    <div class="panel">
+
+      <div class="panel-section">
+        <span class="panel-label">Modelo</span>
+        <span id="model-badge" class="mode-badge mode-error">Não carregado</span>
+      </div>
+
+      <div class="panel-section">
+        <span class="panel-label">Predição da IA</span>
+        <span id="ia-pred" class="state-badge state-unknown">—</span>
+      </div>
+
+      <div id="message-box"></div>
+
+      <button id="new-game-btn" onclick="newGame()">Nova Partida</button>
+    </div>
+  </div>
+
+  <!-- ── Log de predições ─────────────────────────────────────────────── -->
+  <p class="log-title">Histórico de Predições</p>
+  <div id="pred-log">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Jogador</th><th>Predição da IA</th>
+        </tr>
+      </thead>
+      <tbody id="log-body"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    Jogo da Velha × Machine Learning &nbsp;·&nbsp; PUCRS IA 2026/1
+  </footer>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   Estado do jogo
+═══════════════════════════════════════════════════════════════════ */
+let board    = Array(9).fill('b');
+let gameOver = false;
+let busy     = false;
+let logCount = 0;
+
+/* ════════════════════════════════════════════════════════════════════
+   Rótulos legíveis
+═══════════════════════════════════════════════════════════════════ */
+const LABELS = {
+  'tem_jogo': 'Tem Jogo',
+  'x_venceu': 'X Venceu',
+  'o_venceu': 'O Venceu',
+  'empate':   'Empate'
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   Renderização do tabuleiro
+═══════════════════════════════════════════════════════════════════ */
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  board.forEach((val, idx) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (val === 'x') { cell.textContent = 'X'; cell.classList.add('x', 'taken'); }
+    else if (val === 'o') { cell.textContent = 'O'; cell.classList.add('o', 'taken'); }
+    else {
+      if (gameOver || busy) cell.classList.add('disabled');
+      else cell.onclick = () => humanMove(idx);
+    }
+    boardEl.appendChild(cell);
+  });
+}
+
+function highlightWinner(winner) {
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+  const cells = document.querySelectorAll('.cell');
+  WIN_LINES.forEach(line => {
+    if (line.every(i => board[i] === winner)) {
+      line.forEach(i => cells[i].classList.add(winner === 'x' ? 'win-x' : 'win-o'));
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   UI: painel lateral
+═══════════════════════════════════════════════════════════════════ */
+function updatePredPanel(pred) {
+  const predEl = document.getElementById('ia-pred');
+  predEl.textContent = LABELS[pred] ?? pred ?? '—';
+  predEl.className   = 'state-badge state-' + (pred ?? 'unknown');
+}
+
+function showMessage(html, type) {
+  const box = document.getElementById('message-box');
+  box.innerHTML = html;
+  box.className = 'visible';
+  box.classList.remove('msg-win-x','msg-win-o','msg-draw','msg-warn');
+  if (type) box.classList.add(type);
+}
+
+function clearMessage() {
+  const box = document.getElementById('message-box');
+  box.className = '';
+  box.textContent = '';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Log de predições
+═══════════════════════════════════════════════════════════════════ */
+function addLogRow(jogador, pred) {
+  logCount++;
+  const predClass = 'state-' + (pred ?? 'unknown');
+  const row = `<tr>
+    <td>${logCount}</td>
+    <td>${jogador}</td>
+    <td><span class="state-badge ${predClass}" style="font-size:0.72rem;padding:0.15rem 0.5rem">
+      ${LABELS[pred] ?? pred}</span></td>
+  </tr>`;
+  document.getElementById('log-body').insertAdjacentHTML('beforeend', row);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Jogada humana → POST /api/move
+═══════════════════════════════════════════════════════════════════ */
+async function humanMove(pos) {
+  if (gameOver || busy || board[pos] !== 'b') return;
+  busy = true;
+  clearMessage();
+  renderBoard();
+
+  let res;
+  try {
+    const resp = await fetch('/api/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ board: board, position: pos })
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      showMessage('Erro: ' + (err.error ?? resp.statusText), 'msg-warn');
+      busy = false;
+      renderBoard();
+      return;
+    }
+    res = await resp.json();
+  } catch (err) {
+    showMessage('Erro de comunicação com o servidor.', 'msg-warn');
+    busy = false;
+    renderBoard();
+    return;
+  }
+
+  board = res.board;
+
+  updatePredPanel(res.pred_x);
+  addLogRow('Humano (X)', res.pred_x);
+
+  const boardVisual = b => {
+    const s = b.map(v => v === 'b' ? '·' : v.toUpperCase());
+    return `\n  ${s[0]} ${s[1]} ${s[2]}\n  ${s[3]} ${s[4]} ${s[5]}\n  ${s[6]} ${s[7]} ${s[8]}`;
+  };
+
+  console.groupCollapsed(`%c[IA • Grupo 32] Humano jogou na posição ${pos}`, 'color:#4ade80;font-weight:bold');
+  console.log('%cModelo:', 'color:#94a3b8', res.model_name);
+  console.log('%cTabuleiro:', 'color:#94a3b8', boardVisual(res.board));
+  console.log('%cPredição:', 'color:#60a5fa', `"${res.pred_x}"`, '→', LABELS[res.pred_x] ?? res.pred_x);
+  console.groupEnd();
+
+  if (res.pred_o !== null) {
+    updatePredPanel(res.pred_o);
+    addLogRow('CPU (O)', res.pred_o);
+
+    console.groupCollapsed(`%c[IA • Grupo 32] CPU jogou na posição ${res.cpu_position}`, 'color:#f87171;font-weight:bold');
+    console.log('%cModelo:', 'color:#94a3b8', res.model_name);
+    console.log('%cTabuleiro:', 'color:#94a3b8', boardVisual(res.board));
+    console.log('%cPredição:', 'color:#60a5fa', `"${res.pred_o}"`, '→', LABELS[res.pred_o] ?? res.pred_o);
+    console.groupEnd();
+  }
+
+  if (res.game_over) {
+    gameOver = true;
+    const finalPred = res.pred_o ?? res.pred_x;
+
+    if (finalPred === 'x_venceu') {
+      highlightWinner('x');
+      showMessage('🏆 <strong>Você venceu!</strong> X ganhou a partida.', 'msg-win-x');
+    } else if (finalPred === 'o_venceu') {
+      highlightWinner('o');
+      showMessage('🤖 <strong>CPU venceu!</strong> O ganhou a partida.', 'msg-win-o');
+    } else if (finalPred === 'empate') {
+      showMessage('🤝 <strong>Empate!</strong> Nenhum vencedor.', 'msg-draw');
+    } else {
+      showMessage('Jogo encerrado: ' + (LABELS[finalPred] ?? finalPred), 'msg-warn');
+    }
+  }
+
+  busy = false;
+  renderBoard();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Nova partida
+═══════════════════════════════════════════════════════════════════ */
+async function newGame() {
+  const res = await fetch('/api/new_game').then(r => r.json());
+  board    = res.board;
+  gameOver = false;
+  busy     = false;
+  logCount = 0;
+
+  document.getElementById('log-body').innerHTML = '';
+  clearMessage();
+  document.getElementById('ia-pred').textContent = '—';
+  document.getElementById('ia-pred').className   = 'state-badge state-unknown';
+
+  const badgeEl = document.getElementById('model-badge');
+  if (res.model_loaded) {
+    badgeEl.textContent = res.model_name;
+    badgeEl.className   = 'mode-badge mode-ml';
+  } else {
+    badgeEl.textContent = 'Não carregado';
+    badgeEl.className   = 'mode-badge mode-error';
+    showMessage('⚠️ Modelo não carregado. Execute a célula EXPORT do notebook e reinicie o servidor.', 'msg-warn');
+  }
+
+  console.group('%c[IA • Grupo 32] Nova partida iniciada', 'color:#8b5cf6;font-weight:bold;font-size:13px');
+  console.log('%cModelo:', 'color:#94a3b8', res.model_loaded ? res.model_name : 'Não carregado');
+  console.log('%cClasses:', 'color:#94a3b8', ['tem_jogo', 'x_venceu', 'o_venceu', 'empate']);
+  console.log('%cCodificação:', 'color:#94a3b8', '{ x → 1, o → -1, b → 0 }');
+  console.groupEnd();
+
+  renderBoard();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Inicialização
+═══════════════════════════════════════════════════════════════════ */
+newGame();
+</script>
+</body>
+</html>

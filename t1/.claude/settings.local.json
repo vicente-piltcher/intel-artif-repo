@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(findstr Version)",
+      "Bash(python3:*)",
+      "Bash(where python3:*)",
+      "Bash(where python:*)",
+      "Bash(C:/Users/vipil/anaconda3/python.exe -c ':*)",
+      "Bash(C:/Users/vipil/anaconda3/python.exe:*)"
+    ]
+  }
+}

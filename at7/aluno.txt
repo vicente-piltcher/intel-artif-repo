@@ -1,0 +1,15 @@
+Aluno: [Seu Nome]
+Disciplina: Inteligência Artificial
+Data: 15/04/2026
+
+Resposta - Critério Gini vs Entropia no Decision Tree Classifier com Iris
+
+Para responder a essa questão, executei o notebook MLI_DTC_Iris_example.ipynb que utiliza o dataset Iris clássico com um classificador de árvore de decisão (DecisionTreeClassifier) da biblioteca scikit-learn. O dataset foi dividido em 70% para treino e 30% para teste, com estratificação e random_state=0 para garantir reprodutibilidade.
+
+Rodei o modelo duas vezes, uma com criterion='gini' e outra com criterion='entropy', mantendo todos os demais parâmetros idênticos (ccp_alpha=0.0, min_samples_split=2, min_samples_leaf=1). Os resultados obtidos foram os seguintes: o critério Gini produziu uma acurácia de 97,78% (44 de 45 amostras de teste classificadas corretamente), enquanto o critério Entropia produziu uma acurácia de 95,56% (43 de 45 amostras corretas).
+
+Portanto, o critério que produziu melhor acurácia foi o Gini, com 97,78% de acerto no conjunto de teste. A diferença entre os dois critérios foi pequena (apenas um exemplo a mais classificado corretamente pelo Gini), o que é esperado para o dataset Iris, que é relativamente simples e bem separável. Contudo, o critério Gini gerou uma árvore ligeiramente mais compacta e com melhor generalização nesse experimento.
+
+A árvore gerada pelo critério Gini utiliza principalmente a feature "petal width (cm)" como atributo raiz e principal discriminador, com "petal length (cm)" e "sepal length (cm)" aparecendo em nós internos mais profundos. A estrutura resultante tem profundidade menor do que a árvore gerada pela Entropia, o que contribui para sua melhor generalização. Já a árvore por Entropia ficou mais profunda e ramificada, com maior risco de overfitting nos dados de treino.
+
+Em conclusão, para este experimento com o dataset Iris e as configurações do notebook, o critério Gini é o mais recomendado, apresentando acurácia superior e estrutura de árvore mais simples.
