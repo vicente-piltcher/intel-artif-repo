@@ -1,71 +1,64 @@
-# -*- coding: utf-8 -*-
-"""
-T2 - Algoritmos de Busca: Olimpiada (PUCRS - Inteligencia Artificial)
-=====================================================================
+# T2 - Algoritmos de Busca
+# Vicente Piltcher, Michele Ughini e Ghabriel Girard
 
-Problema
---------
-Alunos de duas escolas (A e B) devem ser distribuidos em quartos duplos
-HETEROGENEOS (um aluno de cada escola por quarto), respeitando ao maximo as
-preferencias mutuas registradas em um arquivo-texto.
+# Alunos de duas escolas (A e B) devem ser distribuidos em quartos duplos
+# HETEROGENEOS (um aluno de cada escola por quarto), respeitando ao maximo as
+# preferencias mutuas registradas em um arquivo-texto.
 
-Solucao
--------
-Algoritmo Genetico (AG). Cada individuo e uma PERMUTACAO que representa um
-emparelhamento perfeito entre os alunos da escola A e os da escola B. A funcao
-de aptidao (heuristica) e o CUSTO de insatisfacao: a soma, sobre todas as
-duplas, do ranking que cada aluno deu ao seu par (rank comeca em 1). Quanto
-MENOR o custo, melhor a solucao.
+# Solucao:
 
-Execucao
---------
-    python main.py <arquivo> --modo final
-    python main.py <arquivo> --modo passo
+# Algoritmo Genetico (AG). Cada individuo e uma PERMUTACAO que representa um emparelhamento perfeito entre os alunos da escola A e os da escola B.
+#  A funcao de aptidao (heuristica) e o CUSTO de insatisfacao: a soma, sobre todas as duplas, do ranking que cada aluno deu ao seu par (rank comeca em 1).
+# Quanto MENOR o CUSTO --> MELHOR a solucao.
 
-Parametros opcionais: --pop, --geracoes, --cross, --mut, --torneio,
---elite, --estagnacao, --seed, --sem-grafico, --saida.
+# Operadores: selecao por torneio, ORDER CROSSOVER (OX) e mutacao por troca (swap).
+# Apos cada filho aplica-se uma BUSCA LOCAL (2-swap, first-improvement) que refina
+# a solucao -- e isso que torna o AG e o leva ao otimo de forma confiavel.
+#
+# Execucao (dois modos, como pede o enunciado):
+#   python main.py <arquivo> --modo passo   (pausa a cada geracao)
+#   python main.py <arquivo> --modo final   (roda tudo e mostra a solucao)
+# Os parametros do AG sao fixos no codigo (classe Parametros).
 
-Autor: gerado para o trabalho T2.
-"""
+from __future__ import annotations
 
 import argparse
 import os
 import random
 import sys
+from dataclasses import dataclass
 
 
-# ---------------------------------------------------------------------------
 # 1. LEITURA DO ARQUIVO DE ENTRADA
-# ---------------------------------------------------------------------------
+@dataclass
 class Preferencias:
-    """Armazena as preferencias lidas do arquivo e as tabelas de ranking.
+    # Armazena as preferencias lidas do arquivo e as tabelas derivadas.
 
-    Formato do arquivo (ver quest.txt):
-        - 1a linha: N  (numero de duplas / alunos por escola)
-        - proximas N linhas: alunos da Escola A
-        - proximas N linhas: alunos da Escola B
-      Cada linha: <id> seguido de uma LISTA ORDENADA de ids do outro lado,
-      do MAIS preferido (1a posicao) ao MENOS preferido (ultima posicao).
+    # Formato do arquivo (ver quest.txt):
+    #     - Linha 1: N  (numero de duplas / alunos por escola)
+    #     - proximas N linhas: alunos da Escola A
+    #     - proximas N linhas: alunos da Escola B
+    # Cada linha: <id> seguido de uma LISTA ORDENADA de ids do outro lado,
+    # do MAIS preferido (1° posicao) ao MENOS preferido (ultima posicao).
 
-    Indexacao interna: todos os ids sao convertidos para base 0 (0..N-1).
+    # Indexacao interna: todos os ids sao convertidos para base 0 (0..N-1).
 
-    rank_a[i][j] = posicao (0..N-1) do aluno B 'j' na lista do aluno A 'i'.
-                   0 = primeira escolha. Quanto menor, mais preferido.
-    rank_b[j][i] = posicao do aluno A 'i' na lista do aluno B 'j'.
-    """
+    # rank_a[i][j] = posicao (0..N-1) do aluno B 'j' na lista do aluno A 'i'.
+    #                0 = primeira escolha. Quanto menor, mais preferido.
+    # rank_b[j][i] = posicao do aluno A 'i' na lista do aluno B 'j'.
+    # custo[i][j]  = custo de insatisfacao da dupla (A_i, B_j), em base 1:
+    #                (rank_a[i][j] + 1) + (rank_b[j][i] + 1).
+    #                Pre-computado uma unica vez para acelerar a aptidao e a
+    #                busca local (acesso O(1), sem recalcular rankings).
 
-    def __init__(self, n, rank_a, rank_b):
-        self.n = n
-        self.rank_a = rank_a
-        self.rank_b = rank_b
+    n: int
+    rank_a: list[list[int]]
+    rank_b: list[list[int]]
+    custo: list[list[int]]
 
 
-def ler_arquivo(caminho):
-    """Le o arquivo de preferencias e devolve um objeto Preferencias.
-
-    Tolera linhas em branco e espacos extras. Valida que cada lista e uma
-    permutacao de 1..N (cada aluno do outro lado aparece exatamente uma vez).
-    """
+def ler_arquivo(caminho: str):
+    # Le o arquivo de preferencias e devolve um objeto Preferencias.
     if not os.path.isfile(caminho):
         raise FileNotFoundError(f"Arquivo nao encontrado: {caminho}")
 
@@ -76,20 +69,14 @@ def ler_arquivo(caminho):
         raise ValueError("Arquivo vazio.")
 
     n = int(linhas[0].split()[0])
-    esperado = 1 + 2 * n
-    if len(linhas) < esperado:
-        raise ValueError(
-            f"Arquivo incompleto: esperadas {esperado} linhas uteis "
-            f"(1 + 2*{n}), encontradas {len(linhas)}."
-        )
 
-    def parse_bloco(inicio, nome):
+    def parse_bloco(inicio: int, nome: str):
         # rank[id_aluno][id_outro] = posicao na lista de preferencia
         rank = [[0] * n for _ in range(n)]
         for k in range(n):
             partes = linhas[inicio + k].split()
-            ident = int(partes[0]) - 1          # id do aluno (base 0)
-            lista = [int(x) - 1 for x in partes[1:]]  # lista ordenada (base 0)
+            ident = int(partes[0]) - 1          # id do aluno
+            lista = [int(x) - 1 for x in partes[1:]]  # lista ordenada
             if ident < 0 or ident >= n:
                 raise ValueError(f"Escola {nome}: id de aluno invalido na linha "
                                  f"'{linhas[inicio + k]}'.")
@@ -104,66 +91,61 @@ def ler_arquivo(caminho):
 
     rank_a = parse_bloco(1, "A")
     rank_b = parse_bloco(1 + n, "B")
-    return Preferencias(n, rank_a, rank_b)
+
+    # Matriz de custo pre-computada (base 1) para a dupla (A_i, B_j).
+    custo = [[(rank_a[i][j] + 1) + (rank_b[j][i] + 1) for j in range(n)]
+             for i in range(n)]
+    return Preferencias(n, rank_a, rank_b, custo)
 
 
-# ---------------------------------------------------------------------------
 # 2. CODIFICACAO E FUNCAO DE APTIDAO (HEURISTICA)
-# ---------------------------------------------------------------------------
+
 # Individuo: lista 'perm' de tamanho N.
-#   perm[i] = id (base 0) do aluno da Escola B alocado ao aluno A 'i'.
+#   perm[i] = id do aluno da Escola B alocado ao aluno A 'i'.
 # Uma solucao valida e uma PERMUTACAO de 0..N-1 (cada B usado uma unica vez).
-
-# Penalidade aplicada por id de B repetido/faltante (rede de seguranca, caso
-# algum operador gere individuo invalido). O reparo deve evitar que isso ocorra.
-PENALIDADE_POR_CONFLITO = 1000
+# Todos os operadores (Order Crossover, mutacao por swap e busca local) PRESERVAM a permutacao, entao nao ha como gerar individuo 
+# invalido e a aptidao nao precisa de penalidade.
 
 
-def custo_dupla(prefs, i, j):
-    """Custo de insatisfacao da dupla (A_i, B_j) = rank_A + rank_B (base 1)."""
-    return (prefs.rank_a[i][j] + 1) + (prefs.rank_b[j][i] + 1)
+def custo_dupla(prefs: Preferencias, i: int, j: int) -> int:
+    # Custo de insatisfacao da dupla (A_i, B_j) = rank_A + rank_B.
+    return prefs.custo[i][j]
 
 
-def aptidao(prefs, perm):
-    """Funcao heuristica: custo total da solucao (MENOR = melhor).
+def aptidao(prefs: Preferencias, perm: list[int]) -> int:
+    # Funcao heuristica: custo total da solucao (MENOR = melhor).
 
-    custo = soma dos custos das duplas + penalidade por eventuais conflitos
-    (B repetido). Para uma permutacao valida nao ha conflitos.
-    """
-    total = 0
-    vistos = [0] * prefs.n
-    conflitos = 0
-    for i, j in enumerate(perm):
-        total += custo_dupla(prefs, i, j)
-        vistos[j] += 1
-    for c in vistos:
-        if c != 1:
-            conflitos += abs(c - 1)
-    return total + conflitos * PENALIDADE_POR_CONFLITO
+    # Soma o custo de cada dupla usando a matriz pre-computada. 
+    # Como a permutacao e sempre valida, o custo e simplesmente a soma das insatisfacoes das duplas.
+    return sum(prefs.custo[i][j] for i, j in enumerate(perm))
 
 
-def custo_minimo_possivel(prefs):
-    """Limite inferior teorico (todos com sua 1a escolha mutua) = 2*N.
-    Nem sempre e atingivel, mas serve de referencia para o grafico/log."""
+def solucao_valida(perm: list[int], n: int) -> bool:
+    # Verdadeiro se 'perm' é uma permutacao de 0..N-1 (emparelhamento perfeito).
+    return sorted(perm) == list(range(n))
+
+
+def custo_minimo_possivel(prefs: Preferencias) -> int:
+    # Limite inferior teorico (todos com sua 1a escolha mutua) = 2*N.
+    # Nem sempre e atingivel, mas serve de referencia para o grafico/log.
     return 2 * prefs.n
 
 
-# ---------------------------------------------------------------------------
 # 3. OPERADORES DO ALGORITMO GENETICO
-# ---------------------------------------------------------------------------
-def individuo_aleatorio(n):
-    """Gera um individuo valido: uma permutacao aleatoria de 0..N-1."""
+
+def individuo_aleatorio(n: int):
+    # Gera um individuo valido: uma permutacao aleatoria de 0..N-1.
     perm = list(range(n))
     random.shuffle(perm)
     return perm
 
 
-def inicializa_populacao(n, tamanho):
-    """Cria a populacao inicial com permutacoes aleatorias validas."""
+def inicializa_populacao(n: int, tamanho: int):
+    # Cria a populacao inicial com permutacoes aleatorias validas.
     return [individuo_aleatorio(n) for _ in range(tamanho)]
 
 
-def selecao_torneio(populacao, fits, k):
+def selecao_torneio(populacao: list[list[int]], fits: list[int], k: int):
     """Selecao por torneio: sorteia k individuos e devolve o de menor custo."""
     melhor = random.randrange(len(populacao))
     for _ in range(k - 1):
@@ -173,136 +155,163 @@ def selecao_torneio(populacao, fits, k):
     return populacao[melhor]
 
 
-def reparar(perm, n):
-    """Restaura a validade de uma permutacao apos o crossover de corte simples.
+def _ox_filho(p1: list[int], p2: list[int], a: int, b: int, n: int):
+    # Gera um filho por Order Crossover (OX) a partir do segmento p1[a:b].
 
-    Troca valores duplicados pelos valores faltantes, preservando ao maximo a
-    ordem original (estrategia classica de reparo para representacao por
-    permutacao). Devolve uma permutacao valida de 0..N-1.
-    """
-    vistos = [False] * n
-    faltantes = []
-    # Marca a primeira ocorrencia de cada valor; duplicatas viram -1 (buraco).
-    saida = []
-    for v in perm:
-        if 0 <= v < n and not vistos[v]:
-            vistos[v] = True
-            saida.append(v)
-        else:
-            saida.append(-1)  # duplicata ou valor fora da faixa
-    faltantes = [v for v in range(n) if not vistos[v]]
-    random.shuffle(faltantes)
-    it = iter(faltantes)
-    for idx in range(n):
-        if saida[idx] == -1:
-            saida[idx] = next(it)
-    return saida
+    # Copia o segmento [a, b) de p1 e preenche as demais posicoes com os genes de
+    # p2 (na ordem em que aparecem em p2, a partir de b), pulando os ja herdados.
+    # O resultado e sempre uma permutacao valida - sem necessidade de reparo.
+
+    filho = [-1] * n
+    filho[a:b] = p1[a:b]
+    usados = set(p1[a:b])
+    # Genes de p2 que ainda nao estao no filho, na ordem ciclica a partir de b.
+    fila = []
+    for k in range(n):
+        g = p2[(b + k) % n]
+        if g not in usados:
+            fila.append(g)
+    fi = 0
+    for k in range(n):
+        pos = (b + k) % n
+        if filho[pos] == -1:
+            filho[pos] = fila[fi]
+            fi += 1
+    return filho
 
 
-def crossover(pai1, pai2, n, taxa):
-    """Crossover de CORTE SIMPLES seguido de REPARO.
+def order_crossover(pai1: list[int], pai2: list[int], taxa: float) -> tuple[list[int], list[int]]:
+    # Order Crossover (OX): recombina dois pais preservando a permutacao.
 
-    Com probabilidade 'taxa', escolhe um ponto de corte e combina o inicio de
-    um pai com o fim do outro. Como isso pode gerar ids repetidos, aplica-se
-    reparar() para garantir permutacoes validas. Sem crossover, os filhos sao
-    copias dos pais.
-    """
-    if random.random() > taxa:
+    # Com probabilidade 'taxa', escolhe um segmento aleatorio e gera dois filhos
+    # (um herdando o segmento de cada pai). O OX preserva tanto a posicao relativa
+    # quanto a ordem dos genes, herdando estrutura real dos pais -- diferente do
+    # corte simples, ele nunca produz ids repetidos e dispensa reparo. Sem
+    # crossover, os filhos sao copias dos pais.
+     
+    n = len(pai1)
+    if n <= 1 or random.random() > taxa:
         return pai1[:], pai2[:]
-    ponto = random.randint(1, n - 1) if n > 1 else 1
-    filho1 = pai1[:ponto] + pai2[ponto:]
-    filho2 = pai2[:ponto] + pai1[ponto:]
-    return reparar(filho1, n), reparar(filho2, n)
+    a, b = sorted(random.sample(range(n + 1), 2))  # 0 <= a < b <= n
+    filho1 = _ox_filho(pai1, pai2, a, b, n)
+    filho2 = _ox_filho(pai2, pai1, a, b, n)
+    return filho1, filho2
 
 
-def mutacao(perm, taxa):
-    """Mutacao por TROCA: com probabilidade 'taxa', troca duas posicoes.
+def mutacao(perm: list[int], taxa: float):
+    # Mutacao por TROCA: com probabilidade 'taxa', troca duas posicoes.
 
-    A troca preserva a validade da permutacao (continua heterogenea e completa).
-    """
+    # A troca preserva a validade da permutacao (continua heterogenea e completa).
+    # Altera 'perm' no lugar e tambem o devolve por conveniencia.
     if random.random() < taxa and len(perm) > 1:
         a, b = random.sample(range(len(perm)), 2)
         perm[a], perm[b] = perm[b], perm[a]
     return perm
 
 
-# ---------------------------------------------------------------------------
+def busca_local(prefs: Preferencias, perm: list[int], custo_atual: int | None = None):
+    # Busca local 2-swap (first-improvement)
+
+    # Tenta trocar pares de posicoes e aplica imediatamente qualquer troca que
+    # reduza o custo, repetindo ate nenhum swap melhorar (otimo local da vizinhanca
+    # 2-swap). O ganho de cada troca e avaliado por DELTA usando a matriz de custo
+    # (O(1) por troca), sem recalcular o fitness inteiro.
+
+    # Altera 'perm' no lugar e devolve (perm, custo_final).
+    n = prefs.n
+    custo = prefs.custo
+    if custo_atual is None:
+        custo_atual = aptidao(prefs, perm)
+    melhorou = True
+    while melhorou:
+        melhorou = False
+        for a in range(n - 1):
+            ja = perm[a]
+            for b in range(a + 1, n):
+                jb = perm[b]
+                delta = (custo[a][jb] + custo[b][ja]) - (custo[a][ja] + custo[b][jb])
+                if delta < 0:
+                    perm[a], perm[b] = jb, ja
+                    custo_atual += delta
+                    ja = jb            # perm[a] agora vale jb
+                    melhorou = True
+    return perm, custo_atual
+
+
 # 4. CICLO DO ALGORITMO GENETICO
-# ---------------------------------------------------------------------------
+@dataclass
 class Estatistica:
-    """Resumo de uma geracao para log e grafico."""
-
-    def __init__(self, geracao, melhor, media, pior):
-        self.geracao = geracao
-        self.melhor = melhor
-        self.media = media
-        self.pior = pior
+    # Resumo de uma geracao para log e grafico.
+    geracao: int
+    melhor: int
+    media: float
+    pior: int
 
 
-def avalia_populacao(prefs, populacao):
-    """Devolve a lista de aptidoes (custos) da populacao, na mesma ordem."""
+@dataclass
+class Parametros:
+    # Agrupa os parametros do AG (com valores padrao).
+    pop: int = 100
+    geracoes: int = 500
+    cross: float = 0.85
+    mut: float = 0.15
+    torneio: int = 2
+    elite: int = 2
+    estagnacao: int = 50
+
+    def __post_init__(self) -> None:
+        self.elite = max(1, self.elite)
+
+
+def avalia_populacao(prefs: Preferencias, populacao: list[list[int]]):
+    # Devolve a lista de aptidoes (custos) da populacao, na mesma ordem.
     return [aptidao(prefs, ind) for ind in populacao]
 
 
-def ordena_por_aptidao(populacao, fits):
-    """Devolve (populacao, fits) ordenados do MENOR custo para o MAIOR."""
+def ordena_por_aptidao(populacao: list[list[int]], fits: list[int]):
+    # Devolve (populacao, fits) ordenados do MENOR custo para o MAIOR.
     pares = sorted(zip(populacao, fits), key=lambda p: p[1])
     pop_ord = [p[0] for p in pares]
     fit_ord = [p[1] for p in pares]
     return pop_ord, fit_ord
 
 
-def nova_geracao(prefs, populacao, fits, params):
-    """Gera a proxima populacao: elitismo + (torneio -> crossover -> mutacao)."""
-    n = prefs.n
-    nova = []
+def nova_geracao(prefs: Preferencias, populacao: list[list[int]], fits: list[int], params: Parametros):
+    # Gera a proxima populacao e ja devolve os fits correspondentes.
 
-    # Elitismo: mantem os 'elite' melhores individuos intactos.
-    pop_ord, _ = ordena_por_aptidao(populacao, fits)
-    for e in range(params.elite):
-        nova.append(pop_ord[e][:])
+    # Espera 'populacao'/'fits' ORDENADOS por custo crescente (a elite sai dos
+    # primeiros). Estrutura: elitismo + (torneio -> Order Crossover -> mutacao -> busca local). 
+    # Como o custo de cada filho e obtido durante a geracao (a busca local ja o devolve), 
+    # nao é preciso reavaliar a populacao depois.
+    nova = [populacao[e][:] for e in range(params.elite)]
+    nova_fits = [fits[e] for e in range(params.elite)]
 
-    # Preenche o resto reproduzindo a partir de pais selecionados por torneio.
     while len(nova) < params.pop:
         pai1 = selecao_torneio(populacao, fits, params.torneio)
         pai2 = selecao_torneio(populacao, fits, params.torneio)
-        filho1, filho2 = crossover(pai1, pai2, n, params.cross)
-        filho1 = mutacao(filho1, params.mut)
-        filho2 = mutacao(filho2, params.mut)
-        nova.append(filho1)
-        if len(nova) < params.pop:
-            nova.append(filho2)
-    return nova
+        filho1, filho2 = order_crossover(pai1, pai2, params.cross)
+        for filho in (filho1, filho2):
+            if len(nova) >= params.pop:
+                break
+            mutacao(filho, params.mut)
+            filho, custo = busca_local(prefs, filho)
+            nova.append(filho)
+            nova_fits.append(custo)
+    return nova, nova_fits
 
 
-class Parametros:
-    """Agrupa os parametros do AG (com valores padrao sensatos)."""
-
-    def __init__(self, pop=100, geracoes=500, cross=0.85, mut=0.15,
-                 torneio=2, elite=2, estagnacao=50):
-        self.pop = pop
-        self.geracoes = geracoes
-        self.cross = cross
-        self.mut = mut
-        self.torneio = torneio
-        self.elite = max(1, elite)
-        self.estagnacao = estagnacao
-
-
-def executar_ag(prefs, params, modo, mostrar_callback=None):
-    """Executa o ciclo completo do AG.
-
-    Retorna (melhor_individuo, melhor_custo, historico).
-    'historico' e uma lista de Estatistica (uma por geracao).
-    'mostrar_callback(stat, melhor_ind)' e chamado a cada geracao (log/pausa).
-    Criterios de parada: numero maximo de geracoes OU estagnacao (sem melhora
-    por 'params.estagnacao' geracoes) OU custo otimo teorico atingido.
-    """
+def executar_ag(prefs: Preferencias, params: Parametros, modo: str, mostrar_callback=None):
+    # Executa o ciclo completo do AG.
+    # Retorna (melhor_individuo, melhor_custo, historico).
+    # 'historico' e uma lista de Estatistica (uma por geracao).
+    # 'mostrar_callback(stat, melhor_ind)' e chamado a cada geracao (log/pausa).
+    # Criterios de parada: numero maximo de geracoes OU estagnacao (sem melhora
+    # por 'params.estagnacao' geracoes) OU custo otimo teorico atingido.
     populacao = inicializa_populacao(prefs.n, params.pop)
     fits = avalia_populacao(prefs, populacao)
     populacao, fits = ordena_por_aptidao(populacao, fits)
 
-    historico = []
+    historico: list[Estatistica] = []
     melhor_global = populacao[0][:]
     melhor_custo = fits[0]
     geracoes_sem_melhora = 0
@@ -332,19 +341,16 @@ def executar_ag(prefs, params, modo, mostrar_callback=None):
         if geracoes_sem_melhora >= params.estagnacao:
             break
 
-        # Evolui.
+        # Evolui (nova_geracao ja devolve os fits dos filhos).
         geracao += 1
-        populacao = nova_geracao(prefs, populacao, fits, params)
-        fits = avalia_populacao(prefs, populacao)
+        populacao, fits = nova_geracao(prefs, populacao, fits, params)
         populacao, fits = ordena_por_aptidao(populacao, fits)
 
     return melhor_global, melhor_custo, historico
 
 
-# ---------------------------------------------------------------------------
-# 5. SAIDA: DECODIFICACAO, LOG, GRAFICO E ARQUIVO
-# ---------------------------------------------------------------------------
-def formata_estatistica(stat, otimo):
+# 5. OUTPUT: DECODIFICACAO, LOG E ARQUIVO
+def formata_estatistica(stat: Estatistica, otimo: int) -> str:
     return (f"Geracao {stat.geracao:>4} | "
             f"melhor={stat.melhor:>6} | "
             f"media={stat.media:>8.1f} | "
@@ -352,8 +358,8 @@ def formata_estatistica(stat, otimo):
             f"otimo_teorico={otimo}")
 
 
-def decodifica(prefs, perm):
-    """Devolve uma lista de strings descrevendo cada quarto (dupla)."""
+def decodifica(prefs: Preferencias, perm: list[int]) -> list[str]:
+    # Devolve uma lista de strings descrevendo cada quarto (dupla).
     linhas = []
     for i, j in enumerate(perm):
         ra = prefs.rank_a[i][j] + 1   # ranking que A_i deu a B_j (base 1)
@@ -367,8 +373,8 @@ def decodifica(prefs, perm):
     return linhas
 
 
-def imprime_solucao(prefs, perm, custo, destino=print):
-    """Mostra a solucao CODIFICADA e DECODIFICADA, alem do custo total."""
+def imprime_solucao(prefs: Preferencias, perm: list[int], custo: int, destino=print):
+    # Mostra a solucao CODIFICADA e DECODIFICADA, alem do custo total.
     n = prefs.n
     codificada = [j + 1 for j in perm]  # exibe em base 1
     destino("")
@@ -378,7 +384,7 @@ def imprime_solucao(prefs, perm, custo, destino=print):
     destino(f"Custo total (heuristica): {custo}")
     destino(f"Custo medio por dupla:    {custo / n:.3f}")
     destino(f"Custo otimo teorico (2*N): {custo_minimo_possivel(prefs)}")
-    valida = sorted(perm) == list(range(n))
+    valida = solucao_valida(perm, n)
     destino(f"Solucao valida (emparelhamento perfeito): {'SIM' if valida else 'NAO'}")
     destino("")
     destino("Codificada (B alocado a cada A, na ordem A1..AN):")
@@ -390,9 +396,9 @@ def imprime_solucao(prefs, perm, custo, destino=print):
     destino("=" * 70)
 
 
-def salva_saida(caminho, prefs, perm, custo, historico):
-    """Salva a solucao e o log de evolucao em um arquivo-texto."""
-    linhas = []
+def salva_saida(caminho: str, prefs: Preferencias, perm: list[int], custo: int, historico: list[Estatistica]):
+    # Salva a solucao e o log de evolucao em um arquivo-texto.
+    linhas: list[str] = []
     imprime_solucao(prefs, perm, custo, destino=linhas.append)
     linhas.append("")
     linhas.append("EVOLUCAO DA HEURISTICA (por geracao):")
@@ -403,53 +409,9 @@ def salva_saida(caminho, prefs, perm, custo, historico):
         f.write("\n".join(linhas) + "\n")
 
 
-def gera_grafico(historico, caminho_png, mostrar=True):
-    """Plota a evolucao (melhor/media/pior) com matplotlib. Salva em PNG.
-
-    Falha de forma graciosa caso matplotlib nao esteja instalado.
-    """
-    try:
-        import matplotlib
-        if not mostrar:
-            matplotlib.use("Agg")  # backend sem janela
-        import matplotlib.pyplot as plt
-    except Exception as e:  # pragma: no cover
-        print(f"[aviso] matplotlib indisponivel, grafico nao gerado ({e}).")
-        return
-
-    geracoes = [s.geracao for s in historico]
-    melhor = [s.melhor for s in historico]
-    media = [s.media for s in historico]
-    pior = [s.pior for s in historico]
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(geracoes, pior, label="Pior", color="#d62728", linewidth=1)
-    plt.plot(geracoes, media, label="Media", color="#ff7f0e", linewidth=1.5)
-    plt.plot(geracoes, melhor, label="Melhor", color="#2ca02c", linewidth=2)
-    plt.title("Evolucao da funcao heuristica (custo) ao longo das geracoes")
-    plt.xlabel("Geracao")
-    plt.ylabel("Custo (menor = melhor)")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    try:
-        plt.savefig(caminho_png, dpi=120)
-        print(f"[info] Grafico salvo em: {caminho_png}")
-    except Exception as e:  # pragma: no cover
-        print(f"[aviso] nao foi possivel salvar o grafico ({e}).")
-    if mostrar:
-        try:
-            plt.show()
-        except Exception:
-            pass
-    plt.close()
-
-
-# ---------------------------------------------------------------------------
-# 6. MODOS DE EXECUCAO E CLI
-# ---------------------------------------------------------------------------
-def callback_log(prefs):
-    """Callback do modo FINAL: apenas imprime o resumo de cada geracao."""
+# 6. MODOS DE EXECUCAO
+def callback_log(prefs: Preferencias):
+    # Callback do modo FINAL: apenas imprime o resumo de cada geracao.
     otimo = custo_minimo_possivel(prefs)
 
     def _cb(stat, melhor_ind):
@@ -458,8 +420,8 @@ def callback_log(prefs):
     return _cb
 
 
-def callback_passo(prefs):
-    """Callback do modo PASSO-A-PASSO: imprime a geracao e pausa (Enter)."""
+def callback_passo(prefs: Preferencias):
+    # Callback do modo PASSO-A-PASSO: imprime a geracao e pausa (Enter).
     otimo = custo_minimo_possivel(prefs)
 
     def _cb(stat, melhor_ind):
@@ -476,39 +438,18 @@ def callback_passo(prefs):
     return _cb
 
 
-def construir_parser():
+def construir_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="T2 - AG para distribuicao de alunos em quartos duplos "
-                    "heterogeneos (Olimpiada).")
+        description="AG para distribuicao de alunos em quartos duplos heterogeneos.")
     p.add_argument("arquivo", help="Arquivo-texto com as preferencias.")
     p.add_argument("--modo", choices=["passo", "final"], default="final",
                    help="Modo de execucao: 'passo' (pausa por geracao) ou "
                         "'final' (roda tudo). Padrao: final.")
-    p.add_argument("--pop", type=int, default=100, help="Tamanho da populacao.")
-    p.add_argument("--geracoes", type=int, default=500,
-                   help="Numero maximo de geracoes.")
-    p.add_argument("--cross", type=float, default=0.85, help="Taxa de crossover.")
-    p.add_argument("--mut", type=float, default=0.15, help="Taxa de mutacao.")
-    p.add_argument("--torneio", type=int, default=2,
-                   help="Tamanho do torneio de selecao.")
-    p.add_argument("--elite", type=int, default=2,
-                   help="Quantidade de individuos preservados por elitismo.")
-    p.add_argument("--estagnacao", type=int, default=50,
-                   help="Parada por estagnacao (geracoes sem melhora).")
-    p.add_argument("--seed", type=int, default=None,
-                   help="Semente aleatoria (reprodutibilidade).")
-    p.add_argument("--sem-grafico", action="store_true",
-                   help="Nao exibir/gerar o grafico matplotlib.")
-    p.add_argument("--saida", default=None,
-                   help="Arquivo-texto de saida (padrao: <arquivo>_saida.txt).")
     return p
 
 
-def main(argv=None):
+def main(argv=None) -> int:
     args = construir_parser().parse_args(argv)
-
-    if args.seed is not None:
-        random.seed(args.seed)
 
     try:
         prefs = ler_arquivo(args.arquivo)
@@ -516,21 +457,15 @@ def main(argv=None):
         print(f"[erro] {e}")
         return 1
 
-    params = Parametros(
-        pop=args.pop, geracoes=args.geracoes, cross=args.cross, mut=args.mut,
-        torneio=args.torneio, elite=args.elite, estagnacao=args.estagnacao,
-    )
+    params = Parametros()  # parametros do AG fixos no codigo
 
-    print("=" * 70)
-    print("T2 - ALGORITMO GENETICO - DISTRIBUICAO EM QUARTOS DUPLOS")
-    print("=" * 70)
+    print("ALGORITMO GENETICO - DISTRIBUICAO EM QUARTOS DUPLOS")
     print(f"Arquivo: {args.arquivo}")
     print(f"N (duplas): {prefs.n}")
     print(f"Modo: {args.modo}")
     print(f"Parametros: pop={params.pop}, geracoes={params.geracoes}, "
           f"cross={params.cross}, mut={params.mut}, torneio={params.torneio}, "
           f"elite={params.elite}, estagnacao={params.estagnacao}")
-    print("-" * 70)
     print("Evolucao da heuristica:")
 
     callback = callback_passo(prefs) if args.modo == "passo" else callback_log(prefs)
@@ -539,14 +474,9 @@ def main(argv=None):
     imprime_solucao(prefs, melhor, custo)
 
     # Arquivo de saida.
-    saida = args.saida or (os.path.splitext(args.arquivo)[0] + "_saida.txt")
+    saida = os.path.splitext(args.arquivo)[0] + "_output.txt"
     salva_saida(saida, prefs, melhor, custo, historico)
     print(f"[info] Saida salva em: {saida}")
-
-    # Grafico.
-    if not args.sem_grafico:
-        png = os.path.splitext(args.arquivo)[0] + "_evolucao.png"
-        gera_grafico(historico, png, mostrar=True)
 
     return 0
 

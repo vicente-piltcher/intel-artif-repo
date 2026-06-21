@@ -48,7 +48,7 @@ heterogêneo.
 > favorece a diversidade e reduz o risco de ficar preso em ótimos locais.
 
 A população inicial é gerada **aleatoriamente** (`inicializa_populacao`), com
-`--pop = 100` indivíduos por padrão. Uma população maior aumenta a diversidade (melhor
+`pop = 100` indivíduos por padrão. Uma população maior aumenta a diversidade (melhor
 exploração) ao custo de mais processamento por geração. 100 é um equilíbrio adequado
 para os tamanhos de `N` deste trabalho.
 
@@ -77,12 +77,17 @@ Propriedades que tornam essa heurística adequada:
 - **Simétrica e justa:** considera as preferências dos **dois** lados.
 - **Monotônica:** melhorar qualquer dupla nunca piora o custo total.
 
-- **No código:** `custo_dupla()` e `aptidao()` (Seção 2).
+- **No código:** `aptidao()` e a **matriz de custo pré-computada** `prefs.custo`
+  (Seções 1 e 2). Guardar `custo[i][j] = (rankA+1) + (rankB+1)` uma única vez na
+  leitura torna a avaliação **O(N)** por indivíduo e o **delta** da busca local
+  **O(1)** por troca (ver §9).
 
-### Penalidade
-A `aptidao` ainda soma uma **penalidade** alta por id repetido/faltante. Numa
-permutação válida o termo é zero; ele só existe como **rede de segurança** caso um
-operador gere algo inválido (ver §7).
+### Sem penalidade
+Todos os operadores (**Order Crossover**, **mutação por swap** e **busca local**)
+**preservam a permutação** — nunca surge um indivíduo inválido. Por isso a
+`aptidao` é simplesmente a **soma dos custos das duplas**, sem nenhum termo de
+penalidade (versões anteriores usavam corte simples + reparo, que exigia essa
+rede de segurança; ver §7).
 
 ---
 
@@ -92,7 +97,7 @@ operador gere algo inválido (ver §7).
 > aos melhores (pressão seletiva), sem eliminar a diversidade cedo demais.
 
 Usamos **seleção por torneio** (`selecao_torneio`): sorteiam-se `k` indivíduos
-(`--torneio = 2`) e o de **menor custo** vence. Vantagens sobre a roleta:
+(`torneio = 2`) e o de **menor custo** vence. Vantagens sobre a roleta:
 
 - não exige aptidões normalizadas nem positivas (lidamos com **custo**, não fitness
   proporcional);
@@ -106,32 +111,41 @@ Usamos **seleção por torneio** (`selecao_torneio`): sorteiam-se `k` indivíduo
 > **Conceito.** *Elitismo* preserva os melhores indivíduos de uma geração para a
 > seguinte, garantindo que a melhor solução **nunca piore** ao longo das gerações.
 
-Mantemos os `--elite = 2` melhores intactos a cada geração (início de
+Mantemos os `elite = 2` melhores intactos a cada geração (início de
 `nova_geracao`). Isso estabiliza a convergência e protege o melhor cromossomo de ser
 destruído por crossover/mutação.
 
 ---
 
-## 7. Cruzamento (crossover) e reparo
+## 7. Cruzamento (crossover): Order Crossover (OX)
 
 > **Conceito.** O *crossover* recombina dois pais para gerar filhos, herdando
 > características de ambos — é o principal mecanismo de **exploração** do AG.
 
-Usamos **crossover de corte simples**: escolhe-se um ponto e combina-se o início de um
-pai com o fim do outro (`crossover`, controlado por `--cross = 0.85`).
+Usamos **Order Crossover (OX)** (`order_crossover`, controlado por `cross = 0.85`),
+o operador **clássico para representação por permutação**:
 
-**Problema:** em representação por permutação, o corte simples pode gerar **ids
-repetidos** (filho inválido: dois A no mesmo B). Tratamos isso com a estratégia
-**"corte simples + reparo E penalidade"**:
+1. Sorteia-se um **segmento** `[a, b)` e o filho **herda esse trecho do pai 1**.
+2. As posições restantes são preenchidas com os genes do **pai 2**, na **ordem em
+   que aparecem nele** (a partir de `b`, de forma cíclica), pulando os que já
+   vieram do segmento.
 
-1. **Reparo** (`reparar`): valores duplicados viram "buracos" e são preenchidos com os
-   ids faltantes → o filho volta a ser uma permutação válida. É a defesa **principal**.
-2. **Penalidade** (na `aptidao`): rede de segurança adicional, caso qualquer indivíduo
-   inválido escape ao reparo, ele é fortemente penalizado e some da população.
+Geramos dois filhos por casal (um herdando o segmento de cada pai).
 
-> Alternativas clássicas seriam PMX ou OX (crossovers que já preservam permutação).
-> Optamos por **corte simples + reparo** por ser mais próximo do exemplo de aula e
-> didaticamente mais simples de explicar, mantendo a validade garantida pelo reparo.
+**Exemplo (N=6).** Pais `p1 = [1 2 3 4 5 6]`, `p2 = [4 1 5 2 6 3]`, segmento `[2,5)`:
+- filho herda `p1[2:5] = _ _ 3 4 5 _`;
+- completa com a ordem de `p2` (sem 3,4,5): `4 1 2 6` → resultado `2 6 3 4 5 1`.
+
+Por que OX (e não corte simples + reparo)?
+
+- **Preserva a permutação por construção** — nunca gera ids repetidos, então
+  **dispensa reparo e penalidade**.
+- **Herda estrutura real dos pais**: mantém a *ordem relativa* dos genes do pai 2,
+  diferente do reparo, que reembaralha aleatoriamente os "buracos" e descarta boa
+  parte da informação herdada. Isso melhora a qualidade da busca.
+
+> Versões anteriores usavam **corte simples + reparo + penalidade**. Trocamos pelo
+> OX para herdar mais estrutura e simplificar a aptidão (sem penalidade).
 
 ---
 
@@ -140,62 +154,99 @@ repetidos** (filho inválido: dois A no mesmo B). Tratamos isso com a estratégi
 > **Conceito.** A *mutação* introduz pequenas alterações aleatórias, mantendo a
 > **diversidade** e ajudando a escapar de ótimos locais (**exploração local**).
 
-Usamos **mutação por troca (swap)**: com probabilidade `--mut = 0.15`, trocam-se duas
+Usamos **mutação por troca (swap)**: com probabilidade `mut = 0.15`, trocam-se duas
 posições da permutação (`mutacao`). A troca **preserva a validade** (continua sendo
 uma permutação), então não exige reparo. Uma taxa moderada evita transformar a busca
 em aleatória.
 
 ---
 
-## 9. Critérios de parada
+## 9. Busca local (algoritmo memético)
+
+> **Conceito.** Um *algoritmo memético* combina um AG (busca global, exploração)
+> com uma *busca local* (intensificação) aplicada aos indivíduos. A busca local
+> "desce a ladeira" até um ótimo local, refinando o que o crossover/mutação
+> produziram.
+
+Após gerar cada filho, aplicamos **busca local 2-swap com *first-improvement***
+(`busca_local`): testam-se trocas de duas posições e **aplica-se imediatamente
+qualquer troca que reduza o custo**, repetindo até nenhum swap melhorar (um
+**ótimo local** da vizinhança 2-swap).
+
+O ponto-chave de eficiência é o **delta**: o ganho de trocar as posições `a` e `b`
+é calculado em **O(1)** pela matriz de custo, sem recomputar o fitness inteiro:
+
+```
+delta = (custo[a][jb] + custo[b][ja]) - (custo[a][ja] + custo[b][jb])
+```
+
+Efeito prático: a busca local é o que **leva o AG ao ótimo de forma confiável** —
+no `caso1.txt` ela atinge o custo **13** logo nas primeiras gerações. Ela é parte
+fixa do ciclo (sempre ativa).
+
+- **No código:** `busca_local()` (Seção 3); aplicada em `nova_geracao()` (Seção 4).
+
+---
+
+## 10. Critérios de parada
 
 > **Conceito.** O AG precisa de uma condição de término — por tempo/gerações e/ou por
 > convergência.
 
 Usamos **parada dupla** (`executar_ag`):
 
-1. **Máximo de gerações** (`--geracoes = 500`).
-2. **Estagnação**: sem melhora do melhor custo por `--estagnacao = 50` gerações.
+1. **Máximo de gerações** (`geracoes = 500`).
+2. **Estagnação**: sem melhora do melhor custo por `estagnacao = 50` gerações.
 3. **Ótimo teórico atingido** (custo ≤ `2*N`): não há como melhorar, encerra.
 
 Isso evita desperdício de processamento quando a população já convergiu.
 
 ---
 
-## 10. Parâmetros e seu efeito
+## 11. Parâmetros e seu efeito
 
-| Parâmetro     | Padrão | Efeito de aumentar                                  |
-|---------------|--------|-----------------------------------------------------|
-| População     | 100    | Mais diversidade/exploração; mais custo por geração |
-| Gerações máx. | 500    | Mais tempo para refinar; risco de desperdício       |
-| Taxa crossover| 0.85   | Mais recombinação (exploração)                      |
-| Taxa mutação  | 0.15   | Mais diversidade; alta demais ≈ busca aleatória     |
-| Torneio (k)   | 2      | Mais pressão seletiva (converge mais rápido)        |
-| Elitismo      | 2      | Mais estabilidade; alto demais reduz diversidade    |
+| Parâmetro     | Padrão  | Efeito de aumentar / observação                     |
+|---------------|---------|-----------------------------------------------------|
+| População     | 100     | Mais diversidade/exploração; mais custo por geração |
+| Gerações máx. | 500     | Mais tempo para refinar; risco de desperdício       |
+| Taxa crossover| 0.85    | Mais recombinação (OX, exploração)                  |
+| Taxa mutação  | 0.15    | Mais diversidade; alta demais ≈ busca aleatória     |
+| Torneio (k)   | 2       | Mais pressão seletiva (converge mais rápido)        |
+| Elitismo      | 2       | Mais estabilidade; alto demais reduz diversidade    |
+| Busca local   | ligada  | Refina cada filho (2-swap); sempre ativa            |
 
 A **definição desses parâmetros é parte importante do trabalho**: foram escolhidos por
 equilibrar exploração (crossover/mutação/população) e intensificação
-(torneio/elitismo), e validados empiricamente nos arquivos de teste (ver §11).
+(torneio/elitismo/**busca local**), e validados empiricamente nos arquivos de teste
+(ver §12).
 
 ---
 
-## 11. Validação empírica
+## 12. Validação empírica
 
-- **`exemplo_quest.txt` (N=4):** o AG encontra custo **13**, **idêntico ao ótimo obtido
-  por força bruta** (todas as 24 permutações) — solução `4 2 1 3`.
-- **`arquivoDeTeste1.txt` (N=10):** o AG encontra uma solução válida de custo **30**
+- **`caso1.txt` (N=4):** o AG memético encontra custo **13**, **idêntico ao ótimo
+  obtido por força bruta** (todas as 24 permutações) — solução `4 2 1 3`.
+- **`caso2.txt` (N=10):** encontra uma solução válida de custo **30**
   (média 3,0 por dupla), aproveitando a estrutura cíclica das preferências.
+- **Efeito da busca local:** sem o refinamento memético, o AG "puro" costuma estacionar
+  em valores piores para o mesmo número de gerações — evidência de que o componente
+  **memético** é decisivo para chegar ao ótimo de forma confiável.
+
+Há ainda testes automatizados em [`../test_main.py`](../test_main.py) (rode
+`pytest`) cobrindo leitura, aptidão, validade do OX, monotonicidade da busca local
+e o ótimo de `caso1.txt`.
 
 Esses testes confirmam que a **codificação**, a **heurística** e os **operadores**
 estão coerentes e que o algoritmo converge para soluções ótimas/quase-ótimas.
 
 ---
 
-## 12. Glossário rápido
+## 13. Glossário rápido
 
 - **Indivíduo/cromossomo:** uma solução candidata (aqui, uma permutação).
 - **Gene:** uma posição do cromossomo (`perm[i]`).
 - **População:** conjunto de indivíduos de uma geração.
 - **Aptidão (fitness):** qualidade do indivíduo (aqui, **custo**, a minimizar).
-- **Geração:** uma iteração completa do ciclo seleção→crossover→mutação.
+- **Geração:** uma iteração completa do ciclo seleção→crossover→mutação→busca local.
+- **Algoritmo memético:** AG combinado com busca local (intensificação).
 - **Ótimo local/global:** melhor solução numa vizinhança / em todo o espaço.
