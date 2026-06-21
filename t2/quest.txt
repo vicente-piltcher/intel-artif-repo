@@ -1,0 +1,74 @@
+PUCRS – Inteligência Artificial
+T2 – Algoritmos de Busca: Olimpíada
+Profa. Silvia Moraes
+1. Contexto
+Uma grande olimpíada de conhecimento reuniu alunos de duas escolas diferentes para sua
+fase final. Para acomodar os participantes, a organização do evento reservou um hotel
+composto exclusivamente por quartos duplos. O objetivo da coordenação é distribuir todos
+os estudantes nos quartos disponíveis de forma que nenhum aluno fique sem alojamento e
+que as regras de convivência estabelecidas pelas diretorias de ambas as escolas sejam
+estritamente respeitadas. Para motivar a integração, os quartos duplos deveriam ser
+ocupados por alunos de escolas diferentes: um de cada escola.
+2. Objetivo
+O trabalho consiste em propor a melhor organização dos alunos em quartos duplos
+conforme as preferências dos mesmos. As duplas devem ser heterogêneas, ou seja, um
+aluno de cada escola. Use um dos algoritmos de busca com informação visto em aula para
+encontrar a melhor distribuição em duplas dos alunos.
+3. Preferências
+Para que a integração tivesse mais chance de sucesso, foi passado aos estudantes um
+questionário e a partir desse questionário, os estudantes da escola A foram ordenados
+conforme a preferência dos alunos da escola B e vice-versa.
+As preferências foram registradas em um arquivo texto, semelhante ao mostrado abaixo.
+Esse arquivo texto será a entrada do seu algoritmo.
+
+4
+1 1 2 4 3
+2 2 3 1 4
+3 4 1 3 2
+4 3 1 2 4
+1 3 2 4 1
+2 3 2 4 1
+3 2 4 3 1
+4 1 3 4 2
+
+4. Solução
+Para resolver o problema, use algoritmos genéticos ou simulated annealing. Inicialmente,
+você terá que criar uma codificação para o problema, bem como uma função heurística
+capaz de avaliar a solução independentemente da quantidade de duplas.
+Implemente dois modos de execução, um passo a passo que permite carregar o
+arquivo-texto com as preferências e executar o algoritmo pausadamente. O outro modo
+deve carregar o arquivo texto e exibir ao final a solução encontrada. Independentemente do
+modo de execução, mostre a evolução da função heurística ao longo das iterações do
+algoritmo. Ao final mostre a solução codificada e decodificada.
+5. Forma de Avaliação
+1) O trabalho pode ser realizado em grupo (a ser definido).
+2) A entrega dos fontes, do executável, dos arquivos de saída e do relatório no moodle
+conforme o cronograma da disciplina. Nesse dia, serão fornecidos novos arquivos para testar
+o código.
+3) A nota será distribuída da seguinte forma:
+Pontuação - Critério
+0,5 - Leitura do arquivo de entrada
+1,5 - Implementação do ciclo do Algoritmo Genético ou Simulated Annealing
+2,0 - Função heurística
+2,0 - Execução (modos de exibição)
+2,0 - Relatório em formato ppt
+0,5 - Por arquivo de teste executado com sucesso (4: fornecidos no dia da apresentação).
+● Leitura do arquivo de entrada correta seguindo o formato dado como entrada.
+● Implementação do ciclo do Algoritmo Genético, incluindo codificação, operadores de
+seleção, cruzamento e mutação. Estabelecer os critérios de parada e definir uma função de
+aptidão adequada. A definição dos parâmetros (tamanho da população, escolha dos
+operadores, taxas de mutação e cruzamento) do algoritmo é uma parte importante do
+trabalho, assim como a definição da função de aptidão. A função de aptidão é fundamental
+para o sucesso desse algoritmo.
+● Implementação do Simulated Annealing: codificação, função sucessor (gerado ao acaso),
+função heurística, adequação da temperatura, probabilidade de aceitar uma solução ruim.
+● Apresentação do algoritmo: deve ser possível acompanhar visualmente a execução dos
+algoritmos e seus resultados. Entregue um executável e informações de como executá-lo.
+Permita que seu programa receba o nome do arquivo texto como entrada (args).
+● Relatório no formato ppt: explicando codificação, tamanho da população inicial, funções
+heurísticas, operadores escolhidos, taxa de mutação e cruzamento, problemas e
+considerações sobre o desenvolvimento do trabalho. No caso do Simulated Annealing,
+mencione como você configurou o algoritmo.
+● Os trabalhos não serão aceitos sem apresentação.
+● A falta de domínio da solução demonstrado durante a apresentação pode gerar desconto
+significativo ou mesmo a perda a nota do trabalho (todos do grupo devem estar presentes)
