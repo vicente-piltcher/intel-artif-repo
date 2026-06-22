@@ -1,0 +1,79 @@
+
+======================================================================
+SOLUCAO ENCONTRADA
+======================================================================
+Custo total (heuristica): 30
+Custo medio por dupla:    3.000
+Custo otimo teorico (2*N): 20
+Solucao valida (emparelhamento perfeito): SIM
+
+Codificada (B alocado a cada A, na ordem A1..AN):
+  2 3 4 5 6 7 8 9 10 1
+
+Decodificada (duplas por quarto):
+  Quarto   1: A1 <-> B2  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   2: A2 <-> B3  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   3: A3 <-> B4  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   4: A4 <-> B5  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   5: A5 <-> B6  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   6: A6 <-> B7  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   7: A7 <-> B8  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   8: A8 <-> B9  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto   9: A9 <-> B10  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+  Quarto  10: A10 <-> B1  (A escolheu B como 2a opcao; B escolheu A como 1a opcao; custo=3)
+======================================================================
+
+EVOLUCAO DA HEURISTICA (por geracao):
+  Geracao    1 | melhor=    80 | media=   111.9 | pior=   150 | otimo_teorico=20
+  Geracao    2 | melhor=    50 | media=    60.0 | pior=    90 | otimo_teorico=20
+  Geracao    3 | melhor=    30 | media=    58.6 | pior=    70 | otimo_teorico=20
+  Geracao    4 | melhor=    30 | media=    56.8 | pior=    90 | otimo_teorico=20
+  Geracao    5 | melhor=    30 | media=    55.6 | pior=    70 | otimo_teorico=20
+  Geracao    6 | melhor=    30 | media=    53.2 | pior=    70 | otimo_teorico=20
+  Geracao    7 | melhor=    30 | media=    54.4 | pior=    90 | otimo_teorico=20
+  Geracao    8 | melhor=    30 | media=    54.4 | pior=    70 | otimo_teorico=20
+  Geracao    9 | melhor=    30 | media=    53.6 | pior=    70 | otimo_teorico=20
+  Geracao   10 | melhor=    30 | media=    53.8 | pior=    70 | otimo_teorico=20
+  Geracao   11 | melhor=    30 | media=    53.0 | pior=    70 | otimo_teorico=20
+  Geracao   12 | melhor=    30 | media=    52.4 | pior=    70 | otimo_teorico=20
+  Geracao   13 | melhor=    30 | media=    49.6 | pior=    70 | otimo_teorico=20
+  Geracao   14 | melhor=    30 | media=    47.0 | pior=    70 | otimo_teorico=20
+  Geracao   15 | melhor=    30 | media=    43.6 | pior=    50 | otimo_teorico=20
+  Geracao   16 | melhor=    30 | media=    43.0 | pior=    70 | otimo_teorico=20
+  Geracao   17 | melhor=    30 | media=    40.6 | pior=    70 | otimo_teorico=20
+  Geracao   18 | melhor=    30 | media=    39.4 | pior=    70 | otimo_teorico=20
+  Geracao   19 | melhor=    30 | media=    34.8 | pior=    70 | otimo_teorico=20
+  Geracao   20 | melhor=    30 | media=    31.2 | pior=    50 | otimo_teorico=20
+  Geracao   21 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   22 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   23 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   24 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   25 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   26 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   27 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   28 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   29 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   30 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   31 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   32 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   33 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   34 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   35 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   36 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   37 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   38 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   39 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   40 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   41 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   42 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   43 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   44 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   45 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   46 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   47 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   48 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   49 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   50 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   51 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   52 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20
+  Geracao   53 | melhor=    30 | media=    30.0 | pior=    30 | otimo_teorico=20

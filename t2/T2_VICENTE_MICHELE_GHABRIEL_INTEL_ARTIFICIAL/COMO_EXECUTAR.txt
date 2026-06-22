@@ -1,0 +1,3 @@
+COMO EXECUTAR:
+  main.exe caso1.txt --modo final   (roda tudo e mostra a solucao)
+  main.exe caso1.txt --modo passo   (pausa a cada geracao, ENTER para seguir)
